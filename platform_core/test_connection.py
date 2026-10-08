@@ -1,4 +1,4 @@
-from llm_client import query_manager, query_coder
+from platform_core.llm_client import query_manager, query_coder
 
 def test_local_ai_server():
     print("--- Testing Manager Model ---")
