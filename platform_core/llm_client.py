@@ -13,7 +13,7 @@ def call_llm(endpoint: str, model_name: str, system_prompt: str, user_prompt: st
     }
 
     try:
-        response = requests.post(endpoint, json=payload, timeout=60)
+        response = requests.post(endpoint, json=payload, timeout=300)
         response.raise_for_status()
         data = response.json()
         return data["choices"][0]["message"]["content"]

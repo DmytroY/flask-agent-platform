@@ -6,15 +6,15 @@ class AppTestCase(unittest.TestCase):
         self.client = app.test_client()
         self.client.testing = True
 
-    def test_health_endpoint(self):
-        response = self.client.get('/health')
+    def test_hello_endpoint(self):
+        response = self.client.get('/hello')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json, {'status': 'ok'})
+        self.assertIn(b'What is your name?', response.data)
 
-    def test_version_endpoint(self):
-        response = self.client.get('/version')
+    def test_hello_endpoint_with_name(self):
+        response = self.client.post('/hello', data={'name': 'John'}, follow_redirects=True)
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json, {'version': '1.0.0'})
+        self.assertIn(b'Hello, John', response.data)
 
 if __name__ == '__main__':
     unittest.main()

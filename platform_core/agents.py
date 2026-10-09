@@ -69,16 +69,19 @@ def build_flask_app(user_request: str, max_retries: int = 3):
     planner_prompt = f"""
     The user wants a Flask app with this requirement: "{user_request}".
     
-    Break this down into 3 specific file creation tasks:
-    1. requirements.txt
-    2. app.py (the Flask application with the required endpoints)
-    3. tests/test_app.py (a Python unittest file using Flask's test_client to verify endpoints)
+    Break this down into specific file creation tasks:
+
+    1. main Flask application file with the required endpoints i.e. app.py
+    2. all required html templates for every endpoint
+    3. requirements.txt
+    4. tests/test_app.py (a Python unittest file using Flask's test_client to verify endpoints)
 
     Respond with ONLY a JSON list of tasks.
     Example format:
     [
-      {{"file": "requirements.txt", "description": "Add flask dependency"}},
       {{"file": "app.py", "description": "Create main Flask app with endpoints"}},
+      {{"file": "index.html", "description": "template for endpoint /"}},
+      {{"file": "requirements.txt", "description": "Add flask dependency"}},      
       {{"file": "tests/test_app.py", "description": "Unit test using unittest and Flask test_client"}}
     ]
     """
