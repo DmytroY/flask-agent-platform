@@ -1,18 +1,4 @@
 # local-cluster-sdk/tests/test_client.py
-import os
-import sys
-from pathlib import Path
-
-# 1. Compute the absolute path to the 'src' directory relative to this test file
-SDK_SRC_DIR = str(Path(__file__).resolve().parent.parent / "src")
-
-# 2. Force insert it at index 0 so Python prioritizes this source tree over anything else
-if SDK_SRC_DIR not in sys.path:
-    sys.path.insert(0, SDK_SRC_DIR)
-
-# 3. Force Python's internal path cache to recognize the directory change
-os.environ["PYTHONPATH"] = SDK_SRC_DIR + os.pathsep + os.environ.get("PYTHONPATH", "")
-
 import re
 import pytest
 import requests
