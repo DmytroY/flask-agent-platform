@@ -170,6 +170,20 @@ The project can also run a connection check before generating anything:
 python platform_core/test_connection.py
 ```
 
+## Limitations
+
+Like any AI tool, it works best when the task is described in detail and leaves no room for ambiguity. A query like this works well:
+
+```bash
+python main.py "Create Flask app. When user first enter to endpoint /hello it should display to user text field "What is your name?"  input field for {name} and button. After user input {name} and press button Flask should display text field "Hello, {name}!""
+```
+
+However, a query of this type may produce an unpredictable result:
+```bash
+python main.py "Let it ask my name and then say hello to me"
+```
+
+
 ## Notes
 
 - The root `requirements.txt` installs the SDK used to connect to the local cluster.
