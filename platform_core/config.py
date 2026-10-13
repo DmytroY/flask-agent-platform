@@ -1,12 +1,9 @@
-# Configuration for local AI API endpoints
+# platform_core/config.py
+from local_cluster_sdk import AIClusterClient
 
-# Replace with the actual IP address/port of your local AI server
-API_BASE_URL = "http://192.168.100.23:11434"
+# Initialize the Local Cluster SDK client
+client = AIClusterClient(host="192.168.100.23", port=11434)
 
-# Define endpoints or model identifiers
-MANAGER_MODEL_ENDPOINT = f"{API_BASE_URL}/v1/chat/completions"
-CODING_MODEL_ENDPOINT = f"{API_BASE_URL}/v1/chat/completions"
-
-# Model names as configured on your local server
+# Model names as configured on local server
 MANAGER_MODEL_NAME = "orchestrator"
 CODING_MODEL_NAME = "coder"

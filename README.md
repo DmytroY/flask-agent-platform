@@ -1,127 +1,135 @@
-# Local Cluster SDK
+# Flask Agent Platform
 
-A lightweight Python SDK for bridging local multi-agent workflows with RAM-booted HPC/LLM infrastructure. This SDK provides a simple interface for executing AI workloads against a local cluster running OpenAI-compatible chat completion endpoints.
+A lightweight Python project that uses a local multi-agent workflow to generate a Flask application from a natural-language description. The system splits the work between a manager agent and a coding agent, writes generated files into a `workspace/` directory, and runs unit tests against the generated app.
 
 ## Features
 
-- Execute non-streaming AI workloads on local cluster resources
-- Automatic handling of connection timeouts and model swap delays
-- Clean exception hierarchy for different failure modes
-- OpenAI-compatible payload serialization
-- Designed for RAM-constrained environments with configurable timeouts
+- Natural-language request to Flask app generation
+- Manager agent creates a task plan
+- Coder agent generates `requirements.txt`, `app.py`, and tests
+- Generated app is written to `workspace/`
+- Unit test execution and feedback loop for iteration
+- Local LLM integration via HTTP API endpoints
 
-## Installation
+## Project Structure
 
-Install the package using pip:
-
-```bash
-pip install local-cluster-sdk
+```text
+.
+├── main.py                 # CLI entry point
+├── platform_core/
+│   ├── agents.py           # Multi-agent orchestration
+│   ├── config.py           # Local AI API configuration
+│   ├── llm_client.py       # LLM request helper
+│   ├── parser.py           # JSON/markdown parsing utilities
+│   ├── tester.py           # Test runner wrapper
+│   └── tools.py            # Workspace file management and command execution
+├── workspace/
+│   ├── app.py              # Generated Flask app
+│   ├── requirements.txt    # Generated dependencies
+│   └── tests/
+│       └── test_app.py     # Generated tests
+├── .gitignore
+└── README.md
 ```
 
-For development and testing:
+## How it Works
 
-```bash
-pip install local-cluster-sdk[test]
-```
-
-## Quick Start
-
-```python
-from local_cluster_sdk import AIClusterClient, AgentWorkload
-
-# Initialize the client (defaults to localhost:11434)
-client = AIClusterClient(host="127.0.0.1", port=11434)
-
-# Create a workload
-workload = AgentWorkload(
-    prompt="Write a Flask health endpoint",
-    system_prompt="You are a senior engineer."
-)
-
-# Execute the workload
-result = client.execute(workload, resource="coder")
-print(result)
-```
-
-## Configuration
-
-The `AIClusterClient` accepts the following parameters:
-
-- `host` (str): The cluster host address (default: `"127.0.0.1"`)
-- `port` (int): The cluster port (default: `11434`)
-
-Network timeouts are preconfigured for RAM-constrained environments:
-- Connect timeout: 10 seconds
-- Read timeout: 45 seconds
-
-## AgentWorkload
-
-The `AgentWorkload` dataclass represents an AI completion request:
-
-```python
-from local_cluster_sdk import AgentWorkload
-
-workload = AgentWorkload(
-    prompt="Your user prompt here",
-    system_prompt="Optional system prompt",
-    temperature=0.2,
-    num_ctx=4096
-)
-```
-
-### Parameters
-
-- `prompt` (str): The user's input prompt
-- `system_prompt` (Optional[str]): System instructions for the model
-- `temperature` (float): Sampling temperature (default: `0.2`)
-- `num_ctx` (int): Context window size (default: `4096`)
-
-## Error Handling
-
-The SDK provides specific exceptions for different failure scenarios:
-
-```python
-from local_cluster_sdk import (
-    AIClusterClient,
-    AgentWorkload,
-    ClusterUnreachableError,
-    ModelSwapTimeoutError
-)
-
-client = AIClusterClient()
-workload = AgentWorkload(prompt="Hello")
-
-try:
-    result = client.execute(workload, resource="coder")
-except ClusterUnreachableError as e:
-    print(f"Cluster unreachable: {e}")
-except ModelSwapTimeoutError as e:
-    print(f"Model swap timeout: {e}")
-```
-
-### Exception Hierarchy
-
-- `ClusterSDKError` (base exception)
-  - `ClusterUnreachableError`: Raised when the server is down or blocked by firewall
-  - `ModelSwapTimeoutError`: Raised when model swapping in limited RAM causes timeout
-
-## Testing
-
-Run the test suite:
-
-```bash
-pytest tests/
-```
-
-The tests use `requests_mock` to simulate various cluster responses including:
-- Successful completions
-- Connection timeouts (firewall simulation)
-- Read timeouts (RAM swap simulation)
+1. Run the CLI from the repo root.
+2. Provide a prompt describing the Flask app you want.
+3. The manager model plans the tasks.
+4. The coding model generates the application and test files.
+5. Files are written under `workspace/`.
+6. The app is tested with `unittest`.
+7. If tests fail, the code is regenerated with the error output as feedback.
 
 ## Requirements
 
 - Python 3.9+
-- `requests>=2.31.0`
+- Flask
+- Access to a local LLM API compatible with OpenAI-style chat completions
+
+## Configuration
+
+Before running the app, configure your local LLM endpoints in `platform_core/config.py`.
+
+```python
+API_BASE_URL = "http://192.168.100.23:11434"
+MANAGER_MODEL_ENDPOINT = f"{API_BASE_URL}/v1/chat/completions"
+CODING_MODEL_ENDPOINT = f"{API_BASE_URL}/v1/chat/completions"
+MANAGER_MODEL_NAME = "orchestrator"
+CODING_MODEL_NAME = "coder"
+```
+
+Update the URL and model names to match your local AI server.
+
+## Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/DmytroY/flask-agent-platform.git
+cd flask-agent-platform
+```
+
+Create a virtual environment (optional but recommended):
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+Install dependencies:
+
+```bash
+pip install -r workspace/requirements.txt
+```
+
+## Usage
+
+Run the CLI:
+
+```bash
+python main.py "Create Flask app. When user first tiem enter to endpoint /hello it should display to user text field "What is your name?"  input field for {name} and button. After user input {name} and press button flask should display text field "Hello, {name}!""
+```
+
+Or run interactively:
+
+```bash
+python main.py
+```
+
+The system will generate files in `workspace/` and run tests automatically.
+
+## Example Generated App
+
+The generated app from the workspace follows a simple structure similar to:
+
+```python
+from flask import Flask, jsonify
+
+app = Flask(__name__)
+
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({"status": "ok"})
+
+@app.route('/version', methods=['GET'])
+def version():
+    return jsonify({"version": "1.0.0"})
+```
+
+## Testing
+
+Tests are executed inside the `workspace/` directory. For example:
+
+```bash
+cd workspace
+python -m unittest tests/test_app.py
+```
+
+## Notes
+
+This project is intended as a local experimentation platform for agent-driven app generation. It is intentionally simple and easy to extend for more complex Flask APIs or additional validation flows.
 
 ## License
 
@@ -129,4 +137,4 @@ This project does not currently specify a license.
 
 ## Contributing
 
-Contributions are welcome. Feel free to open a pull request.
+Contributions are welcome. If you want to improve the orchestration, generator prompts, testing flow, or app generation quality, feel free to open a pull request.

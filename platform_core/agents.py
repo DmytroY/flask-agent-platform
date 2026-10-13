@@ -18,6 +18,7 @@ def generate_app_code(description: str, user_request: str, feedback: str = "") -
     - Import Flask (`from flask import Flask, jsonify`).
     - Define `app = Flask(__name__)`.
     - Implement ALL requested API endpoints/routes.
+    - Implement ALL html or JavaScript here in app, not in separate files
     - Output ONLY valid executable Python code in markdown blocks.
     """
     code_output = query_coder(coder_prompt)
@@ -38,7 +39,16 @@ def generate_test_code(filepath: str, description: str, user_request: str) -> st
     - MUST inherit from `unittest.TestCase`.
     - MUST use `self.client = app.test_client()` inside `setUp(self)`.
     - Write test methods (starting with `test_`) checking HTTP status codes and JSON payloads.
-    
+    - Write tests for all HTTP request methods (GET, POST and others).
+
+    MANDATORY ASSERTION RULES (IGNORE ANY CONFLICTING PHRASING IN USER REQUEST):
+    - NEVER assert full sentences, full names, or multi-word phrases together.
+    - FORBIDDEN CODE: self.assertIn('Hello John!', response.data.decode('utf-8'))
+    - REQUIRED CODE: self.assertIn('Hello', response.data.decode('utf-8')) and self.assertIn('John', response.data.decode('utf-8'))
+    - NEVER combine HTML attributes in one string.
+    - FORBIDDEN CODE: self.assertIn('input type="text" name="name"', response.data.decode('utf-8'))
+    - REQUIRED CODE: self.assertIn('type="text"', response.data.decode('utf-8')) and self.assertIn('name="name"', response.data.decode('utf-8'))
+
     TEMPLATE TO FOLLOW STRICTLY:
     ```python
     import unittest
@@ -72,15 +82,13 @@ def build_flask_app(user_request: str, max_retries: int = 3):
     Break this down into specific file creation tasks:
 
     1. main Flask application file with the required endpoints i.e. app.py
-    2. all required html templates for every endpoint
-    3. requirements.txt
-    4. tests/test_app.py (a Python unittest file using Flask's test_client to verify endpoints)
+    2. requirements.txt
+    3. tests/test_app.py (a Python unittest file using Flask's test_client to verify endpoints)
 
     Respond with ONLY a JSON list of tasks.
     Example format:
     [
       {{"file": "app.py", "description": "Create main Flask app with endpoints"}},
-      {{"file": "index.html", "description": "template for endpoint /"}},
       {{"file": "requirements.txt", "description": "Add flask dependency"}},      
       {{"file": "tests/test_app.py", "description": "Unit test using unittest and Flask test_client"}}
     ]
@@ -118,7 +126,7 @@ def build_flask_app(user_request: str, max_retries: int = 3):
             print(test_res["logs"])
             return
         
-        print(f"\n❌ Test Failure Output:\n{test_res['logs']}")
+        print(f"\n--- Test Failure Output:\n{test_res['logs']}")
         if attempt < max_retries:
             print("Sending test error back to Coder Model to rewrite app.py...")
             generate_app_code(
