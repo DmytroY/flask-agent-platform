@@ -1,66 +1,60 @@
 # Flask Agent Platform
 
-A lightweight Python project that uses a local multi-agent workflow to generate a Flask application from a natural-language description. The system splits the work between a manager agent and a coding agent, writes generated files into a `workspace/` directory, and runs unit tests against the generated app.
+This repository contains a small local multi-agent workflow that turns a natural-language request into a Flask application. The project does not ship a full web dashboard or installer; instead, it orchestrates a manager model and a coding model to plan tasks, generate app code and tests, write them into `workspace/`, and validate the result with Python unit tests.
 
-## Features
+## What this project does
 
-- Natural-language request to Flask app generation
-- Manager agent creates a task plan
-- Coder agent generates `requirements.txt`, `app.py`, and tests
-- Generated app is written to `workspace/`
-- Unit test execution and feedback loop for iteration
-- Local LLM integration via HTTP API endpoints
+- Accepts a user prompt describing a Flask app
+- Uses a manager agent to break the request into file-generation tasks
+- Uses a coder agent to generate application code and tests
+- Writes generated files under `workspace/`
+- Runs `unittest` in the workspace and retries when failures occur
+- Connects to a local model cluster through `local_cluster_sdk`
 
-## Project Structure
+## Current project structure
 
 ```text
 .
-├── main.py                 # CLI entry point
+├── main.py                     # CLI entry point
+├── requirements.txt            # Project dependency for local-cluster-sdk
 ├── platform_core/
-│   ├── agents.py           # Multi-agent orchestration
-│   ├── config.py           # Local AI API configuration
-│   ├── llm_client.py       # LLM request helper
-│   ├── parser.py           # JSON/markdown parsing utilities
-│   ├── tester.py           # Test runner wrapper
-│   └── tools.py            # Workspace file management and command execution
+│   ├── agents.py              # Multi-agent orchestration and task loop
+│   ├── config.py              # Local Cluster SDK client configuration
+│   ├── llm_client.py          # Manager and coder model wrappers
+│   ├── parser.py              # JSON parsing and code extraction utilities
+│   ├── test_connection.py     # Quick smoke test for local model connectivity
+│   ├── tester.py              # Runs workspace unit tests
+│   ├── tools.py               # Safe workspace file writing and command execution
+│   └── agents copy.py         # Snapshot/duplicate copy kept in repo
 ├── workspace/
-│   ├── app.py              # Generated Flask app
-│   ├── requirements.txt    # Generated dependencies
+│   ├── app.py                 # Generated Flask app (created at runtime)
+│   ├── requirements.txt       # Generated app dependencies (created at runtime)
 │   └── tests/
-│       └── test_app.py     # Generated tests
+│       └── test_app.py        # Generated unittest file (created at runtime)
 ├── .gitignore
-└── README.md
+├── README.md
+└── LICENSE                    # if added externally; not part of the current repo state
 ```
 
-## How it Works
+Note: the generated app files are created at runtime under `workspace/`; they are not checked in as part of the repository source.
 
-1. Run the CLI from the repo root.
-2. Provide a prompt describing the Flask app you want.
-3. The manager model plans the tasks.
-4. The coding model generates the application and test files.
-5. Files are written under `workspace/`.
-6. The app is tested with `unittest`.
-7. If tests fail, the code is regenerated with the error output as feedback.
+## How it works
+
+1. Run `python main.py` or pass a prompt directly as a command-line argument.
+2. `main.py` forwards the prompt to `platform_core/agents.py`.
+3. The manager model creates a JSON task plan.
+4. The coder model writes the Flask app and test files.
+5. Files are saved in `workspace/` using `platform_core/tools.py`.
+6. `platform_core/tester.py` runs `python -m unittest tests/test_app.py` inside the workspace.
+7. If tests fail, the error output is sent back to the coder and the app is regenerated.
 
 ## Requirements
 
 - Python 3.9+
-- Flask
-- Access to a local LLM API compatible with OpenAI-style chat completions
-
-## Configuration
-
-Before running the app, configure your local LLM endpoints in `platform_core/config.py`.
-
-```python
-API_BASE_URL = "http://192.168.100.23:11434"
-MANAGER_MODEL_ENDPOINT = f"{API_BASE_URL}/v1/chat/completions"
-CODING_MODEL_ENDPOINT = f"{API_BASE_URL}/v1/chat/completions"
-MANAGER_MODEL_NAME = "orchestrator"
-CODING_MODEL_NAME = "coder"
-```
-
-Update the URL and model names to match your local AI server.
+- Access to a local model server compatible with the `local_cluster_sdk` client
+- The following model resources configured on the local server:
+  - `orchestrator`
+  - `coder`
 
 ## Installation
 
@@ -71,38 +65,79 @@ git clone https://github.com/DmytroY/flask-agent-platform.git
 cd flask-agent-platform
 ```
 
-Create a virtual environment (optional but recommended):
+Create and activate a virtual environment (recommended):
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 ```
 
-Install dependencies:
+Install the project requirements:
 
 ```bash
-pip install -r workspace/requirements.txt
+pip install -r requirements.txt
 ```
+
+## Local model configuration
+
+The project connects to a local cluster using `local_cluster_sdk` in `platform_core/config.py`:
+
+```python
+from local_cluster_sdk import AIClusterClient
+
+client = AIClusterClient(host="192.168.100.23", port=11434)
+
+MANAGER_MODEL_NAME = "orchestrator"
+CODING_MODEL_NAME = "coder"
+```
+
+If your local cluster uses a different host or port, update the values in `platform_core/config.py` before running the app.
 
 ## Usage
 
-Run the CLI:
+Run the app with a direct prompt:
 
 ```bash
-python main.py "Create Flask app. When user first tiem enter to endpoint /hello it should display to user text field "What is your name?"  input field for {name} and button. After user input {name} and press button flask should display text field "Hello, {name}!""
+python main.py "Create a basic Flask app with a GET /health endpoint returning JSON {'status': 'ok'}"
 ```
 
-Or run interactively:
+Or run it interactively:
 
 ```bash
 python main.py
 ```
 
-The system will generate files in `workspace/` and run tests automatically.
+When prompted, describe the Flask app you want to generate.
 
-## Example Generated App
+## Project behavior details
 
-The generated app from the workspace follows a simple structure similar to:
+The actual implementation is built around these files:
+
+- `main.py`: launches the CLI and reads the user prompt
+- `platform_core/agents.py`: orchestrates the Manager + Coder flow
+- `platform_core/llm_client.py`: sends prompts to the configured local models
+- `platform_core/parser.py`: strips markdown fences and parses JSON plans
+- `platform_core/tools.py`: writes files and runs shell commands in the workspace
+- `platform_core/tester.py`: executes the generated unit tests
+- `platform_core/test_connection.py`: checks that the manager and coder models are reachable
+
+## Generated app workflow
+
+The generated code is expected to be placed inside `workspace/`. The project writes code in a flat workspace layout, for example:
+
+```text
+workspace/
+├── app.py
+├── requirements.txt
+├── tests/
+│   └── test_app.py
+```
+
+The code generation flow requires the generated app to import from the workspace package context, and tests are written to use Flask's `test_client()`.
+
+## Example of a generated app
+
+A generated app typically looks like:
 
 ```python
 from flask import Flask, jsonify
@@ -112,29 +147,39 @@ app = Flask(__name__)
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({"status": "ok"})
+```
 
-@app.route('/version', methods=['GET'])
-def version():
-    return jsonify({"version": "1.0.0"})
+The generated app dependencies are stored under `workspace/requirements.txt` and usually include Flask, for example:
+
+```txt
+Flask==2.0.1
 ```
 
 ## Testing
 
-Tests are executed inside the `workspace/` directory. For example:
+The test loop executes the generated tests inside the workspace:
 
 ```bash
 cd workspace
 python -m unittest tests/test_app.py
 ```
 
+The project can also run a connection check before generating anything:
+
+```bash
+python platform_core/test_connection.py
+```
+
 ## Notes
 
-This project is intended as a local experimentation platform for agent-driven app generation. It is intentionally simple and easy to extend for more complex Flask APIs or additional validation flows.
+- The root `requirements.txt` installs the SDK used to connect to the local cluster.
+- The generated app's dependencies are separate and are written to `workspace/requirements.txt`.
+- This project is intentionally lightweight and focused on local experimentation with AI-driven Flask generation.
 
 ## License
 
-This project does not currently specify a license.
+This repository does not currently declare a license in its source tree.
 
 ## Contributing
 
-Contributions are welcome. If you want to improve the orchestration, generator prompts, testing flow, or app generation quality, feel free to open a pull request.
+Contributions are welcome. If you want to improve the orchestration logic, generation prompts, testing flow, or reliability of generated Flask apps, please open a pull request.
